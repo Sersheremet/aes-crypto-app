@@ -78,7 +78,7 @@
 </head>
 <body>
   <div class="top-bar">
-    <h1>🌤️ Weather+1</h1>
+    <h1>🌤️ Weather30</h1>
     <div id="password-container" onclick="document.getElementById('password').focus()">
       <input type="password" id="password" autocomplete="off" />
     </div>
@@ -248,22 +248,22 @@
 
       try {
         const mode = document.querySelector('input[name="mode"]:checked').value;
-        const data = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-        const salt = data.slice(0, 16);
-        const iv = data.slice(16, 28);
-        const encrypted = data.slice(28);
         let realPassword = passwordInput;
         if (mode === "dynamic") {
           const currentDate = new Date();
           const dayOfYear = getDayOfYear(currentDate);
           realPassword += await computeTail(passwordInput, dayOfYear);
         }
+
+        const full = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+        const salt = full.slice(0, 16);
+        const iv = full.slice(16, 28);
+        const data = full.slice(28);
         const key = await getKey(realPassword, salt);
-        const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, encrypted);
-        const resultText = dec.decode(decrypted);
-        document.getElementById("result").value = resultText;
+        const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+        document.getElementById("result").value = dec.decode(decrypted);
         const duration = ((performance.now() - startTime) / 1000).toFixed(3);
-        await copyText(resultText, duration);
+        await copyText(dec.decode(decrypted), duration);
       } catch (e) {
         document.getElementById("result").value = "❌ Помилка дешифрування.";
         document.getElementById("copyMsg").textContent = "";
@@ -274,7 +274,6 @@
       document.getElementById("plainText").value = "";
       document.getElementById("result").value = "";
       document.getElementById("copyMsg").textContent = "";
-      document.getElementById("bruteForceTime").textContent = "";
     }
 
     function estimateCharsetSize(password) {
@@ -287,9 +286,9 @@
 
       if (hasLatinUpper) charsetSize += 26;
       if (hasLatinLower) charsetSize += 26;
-      if (hasCyrillic) charsetSize += 66; // 33 великі + 33 малі літери
+      if (hasCyrillic) charsetSize += 66;
       if (hasDigits) charsetSize += 10;
-      if (hasSpecial) charsetSize += 32; // приблизно спецсимволів
+      if (hasSpecial) charsetSize += 32;
       return charsetSize;
     }
 
@@ -306,43 +305,55 @@
     }
 
     function estimateBruteForceTime(password) {
-      const charsetSize = estimateCharsetSize(password);
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+
+      let charsetSize = estimateCharsetSize(password);
+      let length = password.length;
+
+      if (mode === "dynamic") {
+        const tailLength = 32; // довжина динамічного хвоста (hex)
+        const tailCharsetSize = 16; // 0-9, a-f
+        length += tailLength;
+        charsetSize = Math.max(charsetSize, tailCharsetSize);
+      }
+
       if (charsetSize === 0) return "Немає символів для аналізу";
 
-      const length = password.length;
       try {
-        // BigInt для великих степенів
         const combinations = BigInt(charsetSize) ** BigInt(length);
-        const attemptsPerSec = BigInt(1e11); // 10^11 спроб на секунду
-        const seconds = Number(combinations / attemptsPerSec);
-        if (!isFinite(seconds)) return "Занадто великий пароль для оцінки";
-        return formatDuration(seconds);
+        const attemptsPerSec = BigInt(1e11);
+
+        if (combinations < attemptsPerSec) return "< 1 сек";
+
+        const secondsBigInt = combinations / attemptsPerSec;
+        const maxSafe = BigInt(Number.MAX_SAFE_INTEGER);
+
+        if (secondsBigInt <= maxSafe) {
+          const seconds = Number(secondsBigInt);
+          return formatDuration(seconds);
+        } else {
+          const log10 = secondsBigInt.toString().length - 1;
+          return `~10^${log10} сек`;
+        }
       } catch {
         return "Занадто великий пароль для оцінки";
       }
     }
 
-function updateBruteForceTime() {
-  const passwordInput = document.getElementById("password").value;
-  const mode = document.querySelector('input[name="mode"]:checked').value;
-  const bfTimeEl = document.getElementById("bruteForceTime");
-  if (!passwordInput) {
-    bfTimeEl.textContent = "";
-    return;
-  }
-
-  let effectivePassword = passwordInput;
-  if (mode === "dynamic") {
-    // Додаємо 32 символи "хвоста"
-    effectivePassword += "a".repeat(32);
-  }
-
-  const timeEstimation = estimateBruteForceTime(effectivePassword);
-  bfTimeEl.textContent = `⏳ Оцінка часу перебору: ${timeEstimation}`;
-}
-
+    function updateBruteForceTime() {
+      const password = document.getElementById("password").value;
+      const bfTimeEl = document.getElementById("bruteForceTime");
+      if (!password) {
+        bfTimeEl.textContent = "";
+        return;
+      }
+      bfTimeEl.textContent = "⏳ Оцінка часу перебору: " + estimateBruteForceTime(password);
+    }
 
     document.getElementById("password").addEventListener("input", updateBruteForceTime);
+    document.querySelectorAll('input[name="mode"]').forEach(radio => {
+      radio.addEventListener("change", updateBruteForceTime);
+    });
     updateBruteForceTime();
   </script>
 </body>

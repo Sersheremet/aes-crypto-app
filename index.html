@@ -322,16 +322,25 @@
       }
     }
 
-    function updateBruteForceTime() {
-      const password = document.getElementById("password").value;
-      const bfTimeEl = document.getElementById("bruteForceTime");
-      if (!password) {
-        bfTimeEl.textContent = "";
-        return;
-      }
-      const timeEstimation = estimateBruteForceTime(password);
-      bfTimeEl.textContent = `⏳ Оцінка часу перебору: ${timeEstimation}`;
-    }
+function updateBruteForceTime() {
+  const passwordInput = document.getElementById("password").value;
+  const mode = document.querySelector('input[name="mode"]:checked').value;
+  const bfTimeEl = document.getElementById("bruteForceTime");
+  if (!passwordInput) {
+    bfTimeEl.textContent = "";
+    return;
+  }
+
+  let effectivePassword = passwordInput;
+  if (mode === "dynamic") {
+    // Додаємо 32 символи "хвоста"
+    effectivePassword += "a".repeat(32);
+  }
+
+  const timeEstimation = estimateBruteForceTime(effectivePassword);
+  bfTimeEl.textContent = `⏳ Оцінка часу перебору: ${timeEstimation}`;
+}
+
 
     document.getElementById("password").addEventListener("input", updateBruteForceTime);
     updateBruteForceTime();

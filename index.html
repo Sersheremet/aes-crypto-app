@@ -321,7 +321,7 @@
 
       try {
         const combinations = BigInt(charsetSize) ** BigInt(length);
-        const attemptsPerSec = BigInt(1e11);
+        const attemptsPerSec = BigInt(900000);
 
         if (combinations < attemptsPerSec) return "< 1 сек";
 

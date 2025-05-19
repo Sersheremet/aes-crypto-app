@@ -16,8 +16,7 @@
       width: 100%;
       height: 140px;
     }
-    input,
-    button {
+    input, button {
       margin: 0.5em 0;
       font-size: 1.2em;
     }
@@ -79,7 +78,7 @@
 </head>
 <body>
   <div class="top-bar">
-    <h1>🌤️ Weather+</h1>
+    <h1>🌤️ Weather30</h1>
     <div id="password-container" onclick="document.getElementById('password').focus()">
       <input type="password" id="password" autocomplete="off" />
     </div>
@@ -138,18 +137,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js"></script>
 
   <script>
-    function isIOS() {
-      return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    }
-
-    function isAndroid() {
-      return /Android/.test(navigator.userAgent);
-    }
-
-    function isWindows() {
-      return /Windows/.test(navigator.userAgent);
-    }
-
     function getDayOfYear(date = new Date()) {
       const start = new Date(date.getFullYear(), 0, 0);
       const diff = date - start;
@@ -169,8 +156,8 @@
       const argon2Hash = await argon2.hash({
         pass: password,
         salt: salt,
-        time: 10, // ітерації
-        mem: 40 * 1024, // пам'ять
+        time: 10,
+        mem: 40 * 1024,
         parallelism: 1,
         hashLen: 32,
         type: argon2.Argon2id
@@ -210,15 +197,11 @@
 
     async function copyText(text, duration) {
       if (!text) return;
-      if (isIOS()) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showCopiedMessage(duration);
+      } catch {
         showCopyButton(text, duration);
-      } else {
-        try {
-          await navigator.clipboard.writeText(text);
-          showCopiedMessage(duration);
-        } catch {
-          showCopyButton(text, duration);
-        }
       }
     }
 
@@ -226,15 +209,15 @@
       const startTime = performance.now();
       const enc = new TextEncoder();
       const passwordInput = document.getElementById("password").value;
-      if (!passwordInput) return;
       const plainText = document.getElementById("plainText").value;
-      if (!plainText) return;
+      if (!passwordInput || !plainText) return;
 
       try {
         const mode = document.querySelector('input[name="mode"]:checked').value;
         let realPassword = passwordInput;
         if (mode === "dynamic") {
-          const dayOfYear = getDayOfYear();
+          const currentDate = new Date(); // 🟢 Завжди актуальна дата
+          const dayOfYear = getDayOfYear(currentDate);
           realPassword += await computeTail(passwordInput, dayOfYear);
         }
         const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -259,9 +242,8 @@
       const startTime = performance.now();
       const dec = new TextDecoder();
       const passwordInput = document.getElementById("password").value;
-      if (!passwordInput) return;
       const base64 = document.getElementById("plainText").value;
-      if (!base64) return;
+      if (!passwordInput || !base64) return;
 
       try {
         const mode = document.querySelector('input[name="mode"]:checked').value;
@@ -269,10 +251,11 @@
         const salt = data.slice(0, 16);
         const iv = data.slice(16, 28);
         const encrypted = data.slice(28);
-
         let realPassword = passwordInput;
         if (mode === "dynamic") {
-          realPassword += await computeTail(passwordInput, getDayOfYear());
+          const currentDate = new Date(); // 🟢 Свіжа дата
+          const dayOfYear = getDayOfYear(currentDate);
+          realPassword += await computeTail(passwordInput, dayOfYear);
         }
         const key = await getKey(realPassword, salt);
         const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, encrypted);

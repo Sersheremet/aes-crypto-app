@@ -78,7 +78,7 @@
 </head>
 <body>
   <div class="top-bar">
-    <h1>🌤️ Weather30</h1>
+    <h1>🌤️ Weather+5</h1>
     <div id="password-container" onclick="document.getElementById('password').focus()">
       <input type="password" id="password" autocomplete="off" />
     </div>
@@ -254,7 +254,6 @@
           const dayOfYear = getDayOfYear(currentDate);
           realPassword += await computeTail(passwordInput, dayOfYear);
         }
-
         const full = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
         const salt = full.slice(0, 16);
         const iv = full.slice(16, 28);
@@ -301,27 +300,23 @@
       const days = hours / 24;
       if (days < 365) return days.toFixed(2) + " дн";
       const years = days / 365;
-      return years.toFixed(2) + " р";
+      if (years < 1000000) return Math.floor(years).toLocaleString("uk") + " р";
+      return `~10^${Math.floor(Math.log10(seconds))} сек`;
     }
 
     function estimateBruteForceTime(password) {
+      const charsetSize = estimateCharsetSize(password);
+      const length = password.length;
       const mode = document.querySelector('input[name="mode"]:checked').value;
-
-      let charsetSize = estimateCharsetSize(password);
-      let length = password.length;
-
-      if (mode === "dynamic") {
-        const tailLength = 32; // довжина динамічного хвоста (hex)
-        const tailCharsetSize = 16; // 0-9, a-f
-        length += tailLength;
-        charsetSize = Math.max(charsetSize, tailCharsetSize);
-      }
 
       if (charsetSize === 0) return "Немає символів для аналізу";
 
       try {
-        const combinations = BigInt(charsetSize) ** BigInt(length);
-        const attemptsPerSec = BigInt(900000);
+        let combinations = BigInt(charsetSize) ** BigInt(length);
+        if (mode === "dynamic") {
+          combinations *= BigInt(365); // Враховуємо 365 варіантів хвоста
+        }
+        const attemptsPerSec = BigInt(800000); // 8×10^5 спроб/сек (8 RTX 5090)
 
         if (combinations < attemptsPerSec) return "< 1 сек";
 
@@ -332,8 +327,7 @@
           const seconds = Number(secondsBigInt);
           return formatDuration(seconds);
         } else {
-          const log10 = secondsBigInt.toString().length - 1;
-          return `~10^${log10} сек`;
+          return `~10^${secondsBigInt.toString().length - 1} сек`;
         }
       } catch {
         return "Занадто великий пароль для оцінки";

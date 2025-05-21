@@ -2,7 +2,7 @@
 <html lang="uk">
 <head>
   <meta charset="UTF-8" />
-  <title>Weather</title>
+  <title>Weather+</title>
   <meta name="theme-color" content="#0080ff" />
   <link rel="manifest" href="manifest.json" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,6 +12,10 @@
       padding: 1em;
       max-width: 100%;
     }
+       #plainText {
+       font-family: sans-serif;
+       font-size: 16px;
+     }
     textarea {
       width: 100%;
       height: 140px;
@@ -75,14 +79,37 @@
       border: none !important;
     }
     .sin-informer__marker {
-    font-size: 17px !important;
+      font-size: 17px !important;
     }
     .sin-informer__header {
       font-size: 17px !important;
     }
+    #result {
+      color: #333;
+      margin-top: 0.3em;
+      word-break: break-all;
+      font-family: sans-serif;
+      font-size: 16px;
+    }
+    #password-container,
+    #mode-container,
+    #buttons-container,
+    #plainText,
+    #result,
+    #copyMsg,
+    #bruteForceTime {
+      display: none;
+    }
   </style>
 </head>
 <body>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('✅ Service Worker зареєстрований', reg.scope))
+      .catch(err => console.error('❌ Помилка реєстрації Service Worker:', err));
+  }
+</script>
   <div class="top-bar">
     <h1>🌤️ Weather+</h1>
     <div id="password-container" onclick="document.getElementById('password').focus()">
@@ -106,7 +133,7 @@
     <div class="sin-informer__main sin-informer__main_inline">
       <div class="sin-informer__entry">
         <p class="sin-informer__location">Шевченкове</p>
-        <div class="sin-informer__primary" style="display: none">
+        <div class="sin-informer__primary"  id="title">
           <p class="sin-informer__local-time"></p>
           <p class="sin-informer__temp" data-unit="c"></p>
           <div class="sin-informer__condition" data-icon-path="https://sinoptik.ua/resources/informer/assets/icons/conditions"></div>
@@ -127,23 +154,37 @@
   </div>
   <script defer src="https://sinoptik.ua/api/informer/content?loc=PSgEPUVv2QbrbSiU2wFUPwAv&cem=gnNRgn5ogrNx2s3vbhD7cM=0cTYUcnHRPUfSPSb6PS3vBkC"></script>
 
-  <label for="plainText">Завдання:</label>
   <textarea id="plainText" autocomplete="off"></textarea>
 
   <div id="buttons-container">
     <button onclick="encrypt()">Вперед</button>
     <button onclick="decrypt()">Назад</button>
-    <button onclick="clearFields()">Очистити поля</button>
+    <button onclick="clearFields()">Очистити</button>
   </div>
 
-  <label for="result">Результат:</label>
-  <textarea id="result" readonly></textarea>
+  <div id="result"></div>
   <div id="copyMsg" class="small"></div>
   <div id="bruteForceTime" class="small" style="margin-top: 0.3em; color: #333;"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js"></script>
+  <script src="libs/argon2-bundled.min.js"></script>
 
   <script>
+    let clickCount = 0;
+    const requiredClicks = 7;
+
+    document.getElementById("title").addEventListener("click", () => {
+      clickCount++;
+      if (clickCount >= requiredClicks) {
+        document.getElementById("password-container").style.display = "block";
+        document.getElementById("mode-container").style.display = "flex";
+        document.getElementById("buttons-container").style.display = "flex";
+        document.getElementById("plainText").style.display = "block";
+        document.getElementById("result").style.display = "block";
+        document.getElementById("copyMsg").style.display = "block";
+        document.getElementById("bruteForceTime").style.display = "block";
+      }
+    });
+
     function getDayOfYear(date = new Date()) {
       const start = new Date(date.getFullYear(), 0, 0);
       const diff = date - start;
@@ -163,8 +204,8 @@
       const argon2Hash = await argon2.hash({
         pass: password,
         salt: salt,
-        time: 10,
-        mem: 40 * 1024,
+        time: 10, // 10...50   50...100
+        mem: 40 * 1024, // 64...128   128...256 (512)
         parallelism: 1,
         hashLen: 32,
         type: argon2.Argon2id
@@ -236,11 +277,11 @@
         full.set(iv, 16);
         full.set(new Uint8Array(encrypted), 28);
         const base64 = btoa(String.fromCharCode(...full));
-        document.getElementById("result").value = base64;
+        document.getElementById("result").textContent = base64;
         const duration = ((performance.now() - startTime) / 1000).toFixed(3);
         await copyText(base64, duration);
       } catch (e) {
-        document.getElementById("result").value = "❌ Помилка шифрування.";
+        document.getElementById("result").textContent = "❌ Помилка шифрування.";
         document.getElementById("copyMsg").textContent = "";
       }
     }
@@ -266,18 +307,18 @@
         const data = full.slice(28);
         const key = await getKey(realPassword, salt);
         const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
-        document.getElementById("result").value = dec.decode(decrypted);
+        document.getElementById("result").textContent = dec.decode(decrypted);
         const duration = ((performance.now() - startTime) / 1000).toFixed(3);
         await copyText(dec.decode(decrypted), duration);
       } catch (e) {
-        document.getElementById("result").value = "❌ Помилка дешифрування.";
+        document.getElementById("result").textContent = "❌ Помилка дешифрування.";
         document.getElementById("copyMsg").textContent = "";
       }
     }
 
     function clearFields() {
       document.getElementById("plainText").value = "";
-      document.getElementById("result").value = "";
+      document.getElementById("result").textContent = "";
       document.getElementById("copyMsg").textContent = "";
     }
 
@@ -320,9 +361,9 @@
       try {
         let combinations = BigInt(charsetSize) ** BigInt(length);
         if (mode === "dynamic") {
-          combinations *= BigInt(365); // Враховуємо 365 варіантів хвоста
+          combinations *= BigInt(365);
         }
-        const attemptsPerSec = BigInt(800000); // 8×10^5 спроб/сек (8 RTX 5090)
+        const attemptsPerSec = BigInt(800000);
 
         if (combinations < attemptsPerSec) return "< 1 сек";
 

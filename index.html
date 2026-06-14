@@ -28,26 +28,59 @@
       font-size: 1em;
       padding: 0.5em 0.5em;
       cursor: pointer;
+      border: 1px solid #ccc;
+      background: #f0f0f0;
+      border-radius: 4px;
+      transition: all 0.2s ease;
     }
     .top-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
       margin-bottom: 1em;
+      gap: 10px;
     }
     .top-bar h1 {
       margin: 0;
       font-size: 1.8em;
+      white-space: nowrap;
+    }
+    /* Стилі для контейнера пароля та ока */
+    #password-container {
+      position: relative;
+      display: none; /* Керується через JS за 7 кліками */
+      align-items: center;
+      width: 100%;
+      max-width: 250px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding-right: 40px;
+      box-sizing: border-box;
+      background: #fff;
     }
     #password {
       border: none;
       outline: none;
-      background: #fff;
+      background: transparent;
       color: #000;
       caret-color: #000;
-      font-size: 30px;
-      height: 60px;
+      font-size: 24px;
+      height: 50px;
       width: 100%;
+      padding: 0 10px;
+      box-sizing: border-box;
+    }
+    .toggle-password {
+      position: absolute;
+      right: 5px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 5px;
+      margin: 0;
     }
     #mode-container {
       display: flex;
@@ -62,14 +95,26 @@
       gap: 0.3em;
       overflow-x: auto;
     }
-#buttons-container button {
-  flex: 1 1 auto;
-  min-width: 80px;
-  font-size: 0.9em;
- /* padding: 0.4em 0.6em;*/
-  text-align: center;
-  line-height: 1.2;
-}
+    #buttons-container button {
+      flex: 1 1 auto;
+      min-width: 80px;
+      font-size: 0.9em;
+      text-align: center;
+      line-height: 1.2;
+    }
+    /* Стилі для підсвічування кнопок дії */
+    button.btn-primary {
+      background-color: #0080ff;
+      color: white;
+      border-color: #0066cc;
+      font-weight: bold;
+      transform: scale(1.02);
+    }
+    button.btn-secondary {
+      opacity: 0.5;
+      background-color: #f9f9f9;
+      color: #555;
+    }
     .small {
       font-size: 0.9em;
       color: gray;
@@ -97,15 +142,22 @@
       font-family: sans-serif;
       font-size: 16px;
     }
-    #password-container,
+    #upload-container {
+      display: none;
+      gap: 0.5em;
+      margin-bottom: 0.5em;
+    }
+    #upload-container button {
+      font-size: 0.9em;
+      cursor: pointer;
+    }
     #mode-container,
     #buttons-container,
     #plainText,
     #result,
     #copyMsg,
     #bruteForceTime,
-    #fileLabel,
-    #fileInput {
+    #superSecureContainer {
       display: none;
     }
   </style>
@@ -120,8 +172,9 @@
   </script>
   <div class="top-bar">
     <h1 id="mainTitle">🌤️ Погода+</h1>
-    <div id="password-container" onclick="document.getElementById('password').focus()">
+    <div id="password-container">
       <input type="password" id="password" autocomplete="off" />
+      <button type="button" class="toggle-password" id="togglePasswordBtn" title="Показати/приховати пароль">👁️</button>
     </div>
   </div>
 
@@ -162,22 +215,24 @@
   </div>
   <script defer src="https://sinoptik.ua/api/informer/content?loc=PSgEPUVv2QbrbSiU2wFUPwAv&cem=gnNRgn5ogrNx2s3vbhD7cM=0cTYUcnHRPUfSPSb6PS3vBkC"></script>
 
-  <textarea id="plainText" autocomplete="off"></textarea>
+  <textarea id="plainText" autocomplete="off" placeholder="Введіть text для шифрування або вставте зашифрований код..."></textarea>
 
-  <button id="fileLabel" style="font-size: 0.9em; margin-bottom: 0.5em; cursor: pointer;">
-    Вибрати файл
-  </button>
-  <input type="file" id="fileInput" style="display:none" />
-       
-<div id="superSecureContainer" style="display: none; text-align: left; margin-bottom: 1em;">
-  <label><input type="checkbox" id="superSecure" /> 💪 Супер шифрування</label>
-</div>
-
+  <div id="upload-container">
+    <button id="fileLabelBtn">📄 Вибрати файл</button>
+    <button id="folderLabelBtn">📁 Вибрати папку</button>
+  </div>
   
+  <input type="file" id="fileInput" style="display:none" />
+  <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
+        
+  <div id="superSecureContainer" style="display: none; text-align: left; margin-bottom: 1em;">
+    <label><input type="checkbox" id="superSecure" /> 💪 Супер шифрування</label>
+  </div>
+
   <div id="buttons-container">
-    <button onclick="encrypt()">🔒Зашифрувати</button>
-    <button onclick="decrypt()">🔓Розшифрувати</button>
-    <button onclick="clearFields()">🧹Очистити</button>
+    <button id="encryptBtn" onclick="encrypt()">🔒Зашифрувати</button>
+    <button id="decryptBtn" onclick="decrypt()">🔓Розшифрувати</button>
+    <button id="clearBtn" onclick="clearFields()">🧹Очистити</button>
   </div>
 
   <div id="result"></div>
@@ -185,48 +240,143 @@
   <div id="bruteForceTime" class="small" style="margin-top: 0.3em; color: #333;"></div>
 
   <script src="js/argon2-bundled.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
   <script>
     let clickCount = 0;
     const requiredClicks = 7;
-    let fileToProcess = null;
+    
+    let selectedFiles = [];       
+    let processedName = "";       
+    let isFolderMode = false;     
+    let isSingleEncFile = false;  
+
+    const encryptBtn = document.getElementById("encryptBtn");
+    const decryptBtn = document.getElementById("decryptBtn");
+    const plainTextEl = document.getElementById("plainText");
+    const passwordInput = document.getElementById("password");
+    const togglePasswordBtn = document.getElementById("togglePasswordBtn");
+    const passwordContainer = document.getElementById("password-container");
+
+    // Фокус на інпуті при кліку по контейнеру пароля
+    passwordContainer.addEventListener("click", (e) => {
+      if (e.target !== togglePasswordBtn) {
+        passwordInput.focus();
+      }
+    });
 
     document.getElementById("title").addEventListener("click", () => {
       clickCount++;
       if (clickCount >= requiredClicks) {
-        document.getElementById("password-container").style.display = "block";
+        passwordContainer.style.display = "flex";
         document.getElementById("mode-container").style.display = "flex";
         document.getElementById("buttons-container").style.display = "flex";
-        document.getElementById("plainText").style.display = "block";
+        plainTextEl.style.display = "block";
         document.getElementById("result").style.display = "block";
         document.getElementById("copyMsg").style.display = "block";
         document.getElementById("bruteForceTime").style.display = "block";
-        document.getElementById("fileLabel").style.display = "inline-block";
-        document.getElementById("fileInput").style.display = "none"; // файл інпут залишається прихованим
+        document.getElementById("upload-container").style.display = "flex"; 
         document.getElementById("superSecureContainer").style.display = "block";
+        updateSmartButtons();
       }
     });
 
-    const fileInput = document.getElementById("fileInput");
-    const fileLabel = document.getElementById("fileLabel");
+    // Логіка роботи ока показу пароля
+    togglePasswordBtn.addEventListener("click", (e) => {
+      e.stopPropagation(); // щоб не спрацьовував фокус контейнера
+      if (passwordInput.type === "password") {
+        passwordInput.type = "text";
+        togglePasswordBtn.textContent = "🙈";
+      } else {
+        passwordInput.type = "password";
+        togglePasswordBtn.textContent = "👁️";
+      }
+    });
 
-    fileLabel.addEventListener("click", () => {
+    // Автоматичне підсвічування потрібної кнопки
+    function updateSmartButtons() {
+      const textVal = plainTextEl.value.trim();
+      // Перевірка чи схожий текст на Base64 рядок шифру
+      const isBase64Text = textVal.length > 40 && /^[A-Za-z0-9+/=\s]+$/.test(textVal);
+
+      if (isSingleEncFile || isBase64Text) {
+        decryptBtn.className = "btn-primary";
+        encryptBtn.className = "btn-secondary";
+      } else if (selectedFiles.length > 0 || textVal.length > 0) {
+        encryptBtn.className = "btn-primary";
+        decryptBtn.className = "btn-secondary";
+      } else {
+        encryptBtn.className = "";
+        decryptBtn.className = "";
+      }
+    }
+
+    plainTextEl.addEventListener("input", updateSmartButtons);
+
+    const fileInput = document.getElementById("fileInput");
+    const folderInput = document.getElementById("folderInput");
+    const fileLabelBtn = document.getElementById("fileLabelBtn");
+    const folderLabelBtn = document.getElementById("folderLabelBtn");
+
+    fileLabelBtn.addEventListener("click", () => {
       fileInput.click();
+    });
+
+    folderLabelBtn.addEventListener("click", () => {
+      folderInput.click();
     });
 
     fileInput.addEventListener("change", () => {
       if (fileInput.files.length > 0) {
-        fileToProcess = fileInput.files[0];
-        document.getElementById("plainText").style.display = "none";
-        document.getElementById("plainText").value = "";
+        folderInput.value = ""; 
+        isFolderMode = false;
+        
+        const file = fileInput.files[0];
+        selectedFiles = [file];
+        processedName = file.name;
+        isSingleEncFile = file.name.endsWith(".enc");
+
+        if (isSingleEncFile) {
+          document.getElementById("copyMsg").textContent = `Обрано зашифрований файл: ${processedName}`;
+        } else {
+          document.getElementById("copyMsg").textContent = `Обрано звичайний файл: ${processedName}`;
+        }
+
+        plainTextEl.style.display = "none";
+        plainTextEl.value = "";
         document.getElementById("result").textContent = "";
-        document.getElementById("copyMsg").textContent = `Обрано файл: ${fileToProcess.name}`;
+        updateSmartButtons();
       } else {
-        fileToProcess = null;
-        document.getElementById("plainText").style.display = "block";
-        document.getElementById("copyMsg").textContent = "";
+        checkEmptyInputs();
       }
     });
+
+    folderInput.addEventListener("change", () => {
+      if (folderInput.files.length > 0) {
+        fileInput.value = ""; 
+        isFolderMode = true;
+        isSingleEncFile = false;
+        
+        selectedFiles = Array.from(folderInput.files);
+        const relativePath = selectedFiles[0].webkitRelativePath;
+        processedName = relativePath ? relativePath.split('/')[0] : "папка";
+
+        document.getElementById("copyMsg").textContent = `Обрано папку: "${processedName}" (${selectedFiles.length} файлів)`;
+        
+        plainTextEl.style.display = "none";
+        plainTextEl.value = "";
+        document.getElementById("result").textContent = "";
+        updateSmartButtons();
+      } else {
+        checkEmptyInputs();
+      }
+    });
+
+    function checkEmptyInputs() {
+      if (fileInput.files.length === 0 && folderInput.files.length === 0) {
+        clearFields();
+      }
+    }
 
     function getDayOfYear(date = new Date()) {
       const start = new Date(date.getFullYear(), 0, 0);
@@ -251,9 +401,9 @@
       const argon2Hash = await argon2.hash({
         pass: password,
         salt: salt,
-        time: timeCost, // 10...50   50...100
-        mem: memCost, // 64...128   128...256 (512)
-        parallelism: parallelismCost, // 1...4
+        time: timeCost,
+        mem: memCost,
+        parallelism: parallelismCost,
         hashLen: 32,
         type: argon2.Argon2id
       });
@@ -302,49 +452,68 @@
 
     async function encrypt() {
       const startTime = performance.now();
-      const passwordInput = document.getElementById("password").value;
-      if (!passwordInput) return alert("Введіть пароль!");
+      const passwordInputVal = passwordInput.value;
+      if (!passwordInputVal) return alert("Введіть пароль!");
 
-      if (fileToProcess) {
-        // Шифруємо файл
+      if (selectedFiles.length > 0) {
+        if (isSingleEncFile) return alert("Цей файл вже має розширення .enc! Виберіть початковий файл або папку.");
+        
         try {
-          const arrayBuffer = await fileToProcess.arrayBuffer();
+          let dataBuffer;
+          
+          if (isFolderMode) {
+            document.getElementById("copyMsg").textContent = "🗜️ Пакування папки в архів...";
+            const zip = new JSZip();
+            for (const file of selectedFiles) {
+              zip.file(file.webkitRelativePath, file);
+            }
+            dataBuffer = await zip.generateAsync({ type: "arraybuffer" });
+          } else {
+            document.getElementById("copyMsg").textContent = "📄 Читання файлу...";
+            dataBuffer = await selectedFiles[0].arrayBuffer();
+          }
+          
+          document.getElementById("copyMsg").textContent = "🔒 Шифрування даних...";
+
           const mode = document.querySelector('input[name="mode"]:checked').value;
-          let realPassword = passwordInput;
+          let realPassword = passwordInputVal;
           if (mode === "dynamic") {
             const currentDate = new Date();
             const dayOfYear = getDayOfYear(currentDate);
-            realPassword += await computeTail(passwordInput, dayOfYear);
+            realPassword += await computeTail(passwordInputVal, dayOfYear);
           }
+          
           const salt = crypto.getRandomValues(new Uint8Array(16));
           const iv = crypto.getRandomValues(new Uint8Array(12));
           const key = await getKey(realPassword, salt);
-          const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, arrayBuffer);
+          
+          const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, dataBuffer);
           const full = new Uint8Array(salt.byteLength + iv.byteLength + encrypted.byteLength);
           full.set(salt);
           full.set(iv, 16);
           full.set(new Uint8Array(encrypted), 28);
 
-          saveFile(full.buffer, fileToProcess.name + ".enc");
+          const extension = isFolderMode ? ".folder.enc" : ".enc";
+          saveFile(full.buffer, processedName + extension);
+          
           const duration = ((performance.now() - startTime) / 1000).toFixed(3);
-          document.getElementById("copyMsg").textContent = `Зашифровано за ${duration} сек. Файл збережено.`;
-          document.getElementById("result").textContent = "";
-        } catch {
-          alert("Помилка шифрування файлу.");
+          document.getElementById("copyMsg").textContent = `Зашифровано за ${duration} сек. Об'єкт збережено.`;
+        } catch (e) {
+          console.error(e);
+          alert("Помилка шифрування: " + e.message);
         }
       } else {
-        // Шифруємо текст
         const enc = new TextEncoder();
-        const plainText = document.getElementById("plainText").value;
-        if (!plainText) return alert("Введіть текст для шифрування!");
+        const plainText = plainTextEl.value;
+        if (!plainText) return alert("Введіть текст або виберіть файл/папку!");
 
         try {
           const mode = document.querySelector('input[name="mode"]:checked').value;
-          let realPassword = passwordInput;
+          let realPassword = passwordInputVal;
           if (mode === "dynamic") {
             const currentDate = new Date();
             const dayOfYear = getDayOfYear(currentDate);
-            realPassword += await computeTail(passwordInput, dayOfYear);
+            realPassword += await computeTail(passwordInputVal, dayOfYear);
           }
           const salt = crypto.getRandomValues(new Uint8Array(16));
           const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -358,66 +527,73 @@
           document.getElementById("result").textContent = base64;
           const duration = ((performance.now() - startTime) / 1000).toFixed(3);
           await copyText(base64, duration);
-        } catch {
-          document.getElementById("result").textContent = "❌ Помилка шифрування.";
-          document.getElementById("copyMsg").textContent = "";
+          updateSmartButtons();
+        } catch (e) {
+          document.getElementById("result").textContent = "❌ Помилка шифрування тексту.";
         }
       }
     }
 
     async function decrypt() {
       const startTime = performance.now();
-      const passwordInput = document.getElementById("password").value;
+      const passwordInputVal = passwordInput.value;
+      if (!passwordInputVal) return alert("Введіть пароль!");
 
-      if (!passwordInput) return alert("Введіть пароль!");
+      if (selectedFiles.length > 0) {
+        if (isFolderMode) return alert("Для розшифрування потрібно вибрати один файл .enc, а не папку!");
+        if (!isSingleEncFile) return alert("Вибраний файл не має розширення .enc!");
 
-      if (fileToProcess) {
-        // Розшифровка файлу
         try {
-          const arrayBuffer = await fileToProcess.arrayBuffer();
+          document.getElementById("copyMsg").textContent = "🔓 Дешифрування...";
+          const arrayBuffer = await selectedFiles[0].arrayBuffer();
           const full = new Uint8Array(arrayBuffer);
-          if (full.length < 28) throw new Error("Файл надто малий.");
+          if (full.length < 28) throw new Error("Файл пошкоджений або занадто малий.");
 
           const salt = full.slice(0, 16);
           const iv = full.slice(16, 28);
           const data = full.slice(28);
 
           const mode = document.querySelector('input[name="mode"]:checked').value;
-          let realPassword = passwordInput;
+          let realPassword = passwordInputVal;
           if (mode === "dynamic") {
             const currentDate = new Date();
             const dayOfYear = getDayOfYear(currentDate);
-            realPassword += await computeTail(passwordInput, dayOfYear);
+            realPassword += await computeTail(passwordInputVal, dayOfYear);
           }
           const key = await getKey(realPassword, salt);
-          const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+          const decryptedBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
 
-          let originalName = fileToProcess.name;
-if (originalName.endsWith(".enc.txt")) {
-  originalName = originalName.slice(0, -8); // Видаляє .enc.txt
-} else if (originalName.endsWith(".enc")) {
-  originalName = originalName.slice(0, -4); // Видаляє .enc
-}
-          saveFile(decrypted, originalName);
-          const duration = ((performance.now() - startTime) / 1000).toFixed(3);
-          document.getElementById("copyMsg").textContent = `Розшифровано за ${duration} сек. Файл збережено.`;
+          if (processedName.endsWith(".folder.enc")) {
+            document.getElementById("copyMsg").textContent = "📦 Формування архіву папки...";
+            let originalName = processedName.slice(0, -11); 
+            if(!originalName) originalName = "розшифрована_папка";
+            
+            saveFile(decryptedBuffer, originalName + ".zip");
+            const duration = ((performance.now() - startTime) / 1000).toFixed(3);
+            document.getElementById("copyMsg").textContent = `Папку розшифровано за ${duration} сек. Збережено як ZIP-архів.`;
+          } else {
+            let originalName = processedName.slice(0, -4); 
+            saveFile(decryptedBuffer, originalName);
+            const duration = ((performance.now() - startTime) / 1000).toFixed(3);
+            document.getElementById("copyMsg").textContent = `Файл розшифровано за ${duration} сек. Збережено як ${originalName}`;
+          }
           document.getElementById("result").textContent = "";
-        } catch {
-          alert("Помилка дешифрування файлу.");
+        } catch (e) {
+          console.error(e);
+          alert("Помилка дешифрування. Перевірте пароль/режим або структуру файлу.");
         }
       } else {
-        // Розшифровка тексту
-        const base64 = document.getElementById("plainText").value;
+        const base64 = plainTextEl.value.trim();
         if (!base64) return alert("Введіть текст для розшифрування!");
 
         try {
           const dec = new TextDecoder();
           const mode = document.querySelector('input[name="mode"]:checked').value;
-          let realPassword = passwordInput;
+          let realPassword = passwordInputVal;
           if (mode === "dynamic") {
             const currentDate = new Date();
             const dayOfYear = getDayOfYear(currentDate);
-            realPassword += await computeTail(passwordInput, dayOfYear);
+            realPassword += await computeTail(passwordInputVal, dayOfYear);
           }
           const full = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
           const salt = full.slice(0, 16);
@@ -428,9 +604,8 @@ if (originalName.endsWith(".enc.txt")) {
           document.getElementById("result").textContent = dec.decode(decrypted);
           const duration = ((performance.now() - startTime) / 1000).toFixed(3);
           await copyText(dec.decode(decrypted), duration);
-        } catch {
-          document.getElementById("result").textContent = "❌ Помилка дешифрування.";
-          document.getElementById("copyMsg").textContent = "";
+        } catch (e) {
+          document.getElementById("result").textContent = "❌ Помилка дешифрування тексту.";
         }
       }
     }
@@ -450,12 +625,17 @@ if (originalName.endsWith(".enc.txt")) {
     }
 
     function clearFields() {
-      fileToProcess = null;
-      document.getElementById("plainText").value = "";
-      document.getElementById("plainText").style.display = "block";
+      selectedFiles = [];
+      processedName = "";
+      isFolderMode = false;
+      isSingleEncFile = false;
+      fileInput.value = "";
+      folderInput.value = "";
+      plainTextEl.value = "";
+      plainTextEl.style.display = "block"; 
       document.getElementById("result").textContent = "";
       document.getElementById("copyMsg").textContent = "";
-      document.getElementById("fileInput").value = "";
+      updateSmartButtons();
     }
 
     function estimateCharsetSize(password) {
@@ -519,16 +699,19 @@ if (originalName.endsWith(".enc.txt")) {
     }
 
     function updateBruteForceTime() {
-      const password = document.getElementById("password").value;
+      const passwordVal = passwordInput.value;
       const bfTimeEl = document.getElementById("bruteForceTime");
-      if (!password) {
+      if (!passwordVal) {
         bfTimeEl.textContent = "";
         return;
       }
-      bfTimeEl.textContent = "⏳ Оцінка часу перебору: " + estimateBruteForceTime(password);
+      bfTimeEl.textContent = "⏳ Оцінка часу перебору: " + estimateBruteForceTime(passwordVal);
     }
 
-    document.getElementById("password").addEventListener("input", updateBruteForceTime);
+    passwordInput.addEventListener("input", () => {
+      updateBruteForceTime();
+      updateSmartButtons();
+    });
     document.querySelectorAll('input[name="mode"]').forEach(radio => {
       radio.addEventListener("change", updateBruteForceTime);
     });
